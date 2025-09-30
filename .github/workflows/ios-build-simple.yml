@@ -1,0 +1,69 @@
+name: Simple iOS Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: 🍎 Build iOS App
+    runs-on: macos-latest
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: 📱 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'MobileAppUnified/package-lock.json'
+        
+    - name: 📦 Install Dependencies
+      working-directory: MobileAppUnified
+      run: npm ci
+      
+    - name: 🍎 Install iOS Dependencies
+      working-directory: MobileAppUnified/ios
+      run: |
+        gem install cocoapods
+        pod install --repo-update
+        
+    - name: 🏗️ Build iOS App
+      working-directory: MobileAppUnified
+      run: |
+        npx react-native build-ios --mode=Release
+        
+    - name: 📦 Archive iOS App
+      working-directory: MobileAppUnified/ios
+      run: |
+        xcodebuild -workspace MobileAppUnified.xcworkspace \
+          -scheme MobileAppUnified \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          -archivePath build/MobileAppUnified.xcarchive \
+          archive
+          
+    - name: 📤 Export IPA
+      working-directory: MobileAppUnified/ios
+      run: |
+        xcodebuild -exportArchive \
+          -archivePath build/MobileAppUnified.xcarchive \
+          -exportPath build \
+          -exportOptionsPlist ExportOptions.plist
+          
+    - name: 📤 Upload iOS Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-app
+        path: MobileAppUnified/ios/build/*.ipa
+        retention-days: 30
+        
+    - name: 📊 Build Summary
+      run: |
+        echo "✅ iOS Build completed successfully!"
+        echo "📱 IPA file generated and uploaded as artifact"
+        echo "🔗 Download from: Actions -> Artifacts"
