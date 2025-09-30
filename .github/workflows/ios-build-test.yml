@@ -1,0 +1,116 @@
+name: iOS Build for Appetize.io Testing
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ios-apps:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        project: [MobileAppUnified, TestApp, StableApp]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: '${{ matrix.project }}/package-lock.json'
+        
+    - name: Install dependencies
+      run: |
+        cd ${{ matrix.project }}
+        npm ci
+        
+    - name: Setup Ruby for CocoaPods
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+        
+    - name: Install CocoaPods dependencies
+      run: |
+        cd ${{ matrix.project }}/ios
+        pod install --repo-update
+        
+    - name: Build iOS app for simulator
+      run: |
+        cd ${{ matrix.project }}
+        xcodebuild \
+          -workspace ios/${{ matrix.project }}.xcworkspace \
+          -scheme ${{ matrix.project }} \
+          -configuration Debug \
+          -destination 'generic/platform=iOS Simulator' \
+          -derivedDataPath ios/build \
+          build
+          
+    - name: Create app bundle
+      run: |
+        cd ${{ matrix.project }}
+        # 查找构建产物
+        find ios/build -name "*.app" -type d
+        
+        # 创建用于 Appetize.io 的 zip 文件
+        APP_PATH=$(find ios/build -name "${{ matrix.project }}.app" -type d | head -1)
+        if [ -n "$APP_PATH" ]; then
+          cd "$(dirname "$APP_PATH")"
+          zip -r "${{ matrix.project }}-ios-simulator.zip" "$(basename "$APP_PATH")"
+          mv "${{ matrix.project }}-ios-simulator.zip" "$GITHUB_WORKSPACE/"
+        fi
+        
+    - name: Upload iOS app artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.project }}-ios-app
+        path: ${{ matrix.project }}-ios-simulator.zip
+        retention-days: 7
+        
+    - name: Create build info
+      run: |
+        echo "# ${{ matrix.project }} Build Info" > ${{ matrix.project }}-build-info.md
+        echo "- Build Date: $(date)" >> ${{ matrix.project }}-build-info.md
+        echo "- React Native Version: $(cd ${{ matrix.project }} && npm list react-native --depth=0 | grep react-native)" >> ${{ matrix.project }}-build-info.md
+        echo "- Node Version: $(node --version)" >> ${{ matrix.project }}-build-info.md
+        echo "- Xcode Version: $(xcodebuild -version | head -1)" >> ${{ matrix.project }}-build-info.md
+        echo "- macOS Version: $(sw_vers -productVersion)" >> ${{ matrix.project }}-build-info.md
+        
+    - name: Upload build info
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.project }}-build-info
+        path: ${{ matrix.project }}-build-info.md
+        retention-days: 7
+
+  create-test-summary:
+    needs: build-ios-apps
+    runs-on: ubuntu-latest
+    steps:
+    - name: Create test summary
+      run: |
+        echo "# iOS Build Summary for Appetize.io Testing" > test-summary.md
+        echo "" >> test-summary.md
+        echo "## Build Status" >> test-summary.md
+        echo "- ✅ MobileAppUnified: Built successfully" >> test-summary.md
+        echo "- ✅ TestApp: Built successfully" >> test-summary.md  
+        echo "- ✅ StableApp: Built successfully" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## Next Steps" >> test-summary.md
+        echo "1. Download the app artifacts from this workflow" >> test-summary.md
+        echo "2. Upload each .zip file to https://appetize.io" >> test-summary.md
+        echo "3. Follow the iOS-Test-Plan.md for detailed testing" >> test-summary.md
+        echo "4. Record results in the test report template" >> test-summary.md
+        
+    - name: Upload test summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-summary
+        path: test-summary.md
+        retention-days: 7

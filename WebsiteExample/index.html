@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动应用网站示例</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .feature-section {
+            margin-bottom: 30px;
+        }
+        
+        .feature-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 8px;
+            background-color: #007AFF;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn:hover {
+            background-color: #0056CC;
+        }
+        
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background-color: #34C759;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #28A745;
+        }
+        
+        .btn-danger {
+            background-color: #FF3B30;
+        }
+        
+        .btn-danger:hover {
+            background-color: #D70015;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #666;
+            min-height: 20px;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        #video {
+            width: 100%;
+            height: 200px;
+            background-color: #000;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        #fileInput {
+            margin-bottom: 10px;
+        }
+        
+        #preview {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>移动应用功能测试</h1>
+        
+        <!-- QR码扫描功能 -->
+        <div class="feature-section">
+            <div class="feature-title">📱 QR码扫描</div>
+            <button class="btn" onclick="startQRScanner()">开始扫描QR码</button>
+            <video id="video" class="hidden"></video>
+            <button class="btn btn-danger hidden" id="stopScanBtn" onclick="stopQRScanner()">停止扫描</button>
+            <div id="qrResult" class="result"></div>
+        </div>
+        
+        <!-- GPS定位功能 -->
+        <div class="feature-section">
+            <div class="feature-title">🌍 GPS定位</div>
+            <button class="btn" onclick="getCurrentLocation()">获取当前位置</button>
+            <div id="locationResult" class="result"></div>
+        </div>
+        
+        <!-- 相机拍照功能 -->
+        <div class="feature-section">
+            <div class="feature-title">📷 相机拍照</div>
+            <input type="file" id="fileInput" accept="image/*" capture="camera" onchange="handlePhotoCapture(event)">
+            <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">拍照</button>
+            <button class="btn" onclick="selectFromGallery()">从相册选择</button>
+            <img id="preview" class="hidden" alt="预览图片">
+            <div id="photoResult" class="result"></div>
+        </div>
+        
+        <!-- 生物识别登录 -->
+        <div class="feature-section">
+            <div class="feature-title">🔐 生物识别</div>
+            <button class="btn" onclick="biometricLogin()">生物识别登录</button>
+            <div id="biometricResult" class="result"></div>
+        </div>
+        
+        <!-- 原生功能测试 -->
+        <div class="feature-section">
+            <div class="feature-title">🔧 原生功能</div>
+            <button class="btn" onclick="requestCameraPermission()">请求相机权限</button>
+            <button class="btn" onclick="requestLocationPermission()">请求位置权限</button>
+            <button class="btn btn-danger" onclick="closeApp()">关闭应用</button>
+            <div id="nativeResult" class="result"></div>
+        </div>
+    </div>
+
+    <!-- ZXing QR码扫描库 -->
+    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    
+    <script>
+        let codeReader = null;
+        let isScanning = false;
+        
+        // 监听原生消息
+        window.addEventListener('nativeMessage', function(event) {
+            const message = event.detail;
+            console.log('收到原生消息:', message);
+            
+            switch (message.type) {
+                case 'CAMERA_PERMISSION_RESULT':
+                    showResult('nativeResult', 
+                        message.granted ? '相机权限已授予' : '相机权限被拒绝', 
+                        message.granted ? 'success' : 'error'
+                    );
+                    break;
+                    
+                case 'LOCATION_PERMISSION_RESULT':
+                    showResult('nativeResult', 
+                        message.granted ? '位置权限已授予' : '位置权限被拒绝', 
+                        message.granted ? 'success' : 'error'
+                    );
+                    break;
+                    
+                case 'LOCATION_SUCCESS':
+                    const { latitude, longitude, accuracy } = message.data;
+                    showResult('locationResult', 
+                        `位置: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n精度: ${accuracy}米`, 
+                        'success'
+                    );
+                    break;
+                    
+                case 'LOCATION_ERROR':
+                    showResult('locationResult', `定位失败: ${message.error}`, 'error');
+                    break;
+                    
+                case 'BIOMETRIC_RESULT':
+                    showResult('biometricResult', 
+                        message.success ? '生物识别验证成功' : `生物识别失败: ${message.error}`, 
+                        message.success ? 'success' : 'error'
+                    );
+                    break;
+            }
+        });
+        
+        // 显示结果
+        function showResult(elementId, message, type = '') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+        }
+        
+        // QR码扫描功能
+        function startQRScanner() {
+            if (!window.ZXing) {
+                showResult('qrResult', '正在加载QR码扫描库...', 'error');
+                return;
+            }
+            
+            if (isScanning) return;
+            
+            codeReader = new ZXing.BrowserQRCodeReader();
+            const videoElement = document.getElementById('video');
+            const stopBtn = document.getElementById('stopScanBtn');
+            
+            videoElement.classList.remove('hidden');
+            stopBtn.classList.remove('hidden');
+            isScanning = true;
+            
+            codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+                if (result) {
+                    showResult('qrResult', `扫描结果: ${result.text}`, 'success');
+                    stopQRScanner();
+                }
+                if (err && !(err instanceof ZXing.NotFoundException)) {
+                    console.error('QR扫描错误:', err);
+                }
+            }).catch(err => {
+                showResult('qrResult', `启动扫描失败: ${err.message}`, 'error');
+                stopQRScanner();
+            });
+        }
+        
+        function stopQRScanner() {
+            if (codeReader) {
+                codeReader.reset();
+                codeReader = null;
+            }
+            
+            document.getElementById('video').classList.add('hidden');
+            document.getElementById('stopScanBtn').classList.add('hidden');
+            isScanning = false;
+        }
+        
+        // GPS定位功能
+        function getCurrentLocation() {
+            showResult('locationResult', '正在获取位置...', '');
+            
+            // 首先尝试通过原生桥接获取位置
+            if (window.NativeApp) {
+                window.NativeApp.getCurrentLocation();
+                return;
+            }
+            
+            // 回退到标准的地理位置API
+            if (!navigator.geolocation) {
+                showResult('locationResult', '设备不支持地理位置功能', 'error');
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+                    showResult('locationResult', 
+                        `位置: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n精度: ${accuracy}米`, 
+                        'success'
+                    );
+                },
+                (error) => {
+                    let errorMsg = '';
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = '位置权限被拒绝';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = '位置信息不可用';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = '获取位置超时';
+                            break;
+                        default:
+                            errorMsg = '获取位置失败';
+                            break;
+                    }
+                    showResult('locationResult', errorMsg, 'error');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 10000
+                }
+            );
+        }
+        
+        // 相机拍照功能
+        function handlePhotoCapture(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('preview');
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                
+                showResult('photoResult', 
+                    `照片已拍摄: ${file.name}\n大小: ${(file.size / 1024).toFixed(1)} KB`, 
+                    'success'
+                );
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function selectFromGallery() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = handlePhotoCapture;
+            input.click();
+        }
+        
+        // 生物识别登录
+        function biometricLogin() {
+            showResult('biometricResult', '正在进行生物识别验证...', '');
+            
+            if (window.NativeApp) {
+                window.NativeApp.biometricLogin({ 
+                    username: 'testuser',
+                    timestamp: Date.now()
+                });
+            } else {
+                showResult('biometricResult', '生物识别功能仅在移动应用中可用', 'error');
+            }
+        }
+        
+        // 原生功能测试
+        function requestCameraPermission() {
+            if (window.NativeApp) {
+                window.NativeApp.requestCameraPermission();
+            } else {
+                showResult('nativeResult', '原生功能仅在移动应用中可用', 'error');
+            }
+        }
+        
+        function requestLocationPermission() {
+            if (window.NativeApp) {
+                window.NativeApp.requestLocationPermission();
+            } else {
+                showResult('nativeResult', '原生功能仅在移动应用中可用', 'error');
+            }
+        }
+        
+        function closeApp() {
+            if (window.NativeApp) {
+                window.NativeApp.closeApp();
+            } else {
+                showResult('nativeResult', '关闭功能仅在移动应用中可用', 'error');
+            }
+        }
+        
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查是否在移动应用的WebView中
+            if (window.NativeApp) {
+                showResult('nativeResult', '✅ 已连接到移动应用', 'success');
+            } else {
+                showResult('nativeResult', '⚠️ 在浏览器中运行，部分功能不可用', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

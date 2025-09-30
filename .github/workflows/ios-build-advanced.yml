@@ -1,0 +1,133 @@
+name: 🍎 iOS Build Advanced
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'MobileAppUnified/**'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'MobileAppUnified/**'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+        - development
+        - preview
+        - production
+
+jobs:
+  build-ios:
+    name: 🍎 Build iOS App
+    runs-on: macos-latest
+    
+    defaults:
+      run:
+        working-directory: ./MobileAppUnified
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './MobileAppUnified/package-lock.json'
+        
+    - name: 📦 Install dependencies
+      run: |
+        npm ci
+        
+    - name: 🔍 Verify React Native setup
+      run: |
+        npx react-native --version
+        
+    - name: 🍎 Setup iOS environment
+      run: |
+        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        xcodebuild -version
+        
+    - name: 💎 Install CocoaPods
+      run: |
+        cd ios
+        pod install --repo-update
+        
+    - name: 🏗️ Build iOS app
+      run: |
+        cd ios
+        xcodebuild \
+          -workspace MobileAppUnified.xcworkspace \
+          -scheme MobileAppUnified \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          -archivePath $PWD/build/MobileAppUnified.xcarchive \
+          archive
+          
+    - name: 📱 Export IPA
+      run: |
+        cd ios
+        xcodebuild \
+          -exportArchive \
+          -archivePath $PWD/build/MobileAppUnified.xcarchive \
+          -exportOptionsPlist ExportOptions.plist \
+          -exportPath $PWD/build/
+          
+    - name: 📤 Upload IPA artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MobileAppUnified-iOS-${{ github.sha }}
+        path: ./MobileAppUnified/ios/build/*.ipa
+        retention-days: 30
+        
+    - name: 📊 Build summary
+      run: |
+        echo "🎉 iOS Build Completed Successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "📱 Platform: iOS" >> $GITHUB_STEP_SUMMARY
+        echo "🏗️ Build Type: ${{ github.event.inputs.build_type || 'preview' }}" >> $GITHUB_STEP_SUMMARY
+        echo "📦 Artifact: MobileAppUnified-iOS-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "⏰ Build Time: $(date)" >> $GITHUB_STEP_SUMMARY
+        
+  build-eas:
+    name: 🌐 EAS Build (Alternative)
+    runs-on: ubuntu-latest
+    if: false  # Disabled by default, enable when needed
+    
+    defaults:
+      run:
+        working-directory: ./MobileAppUnified
+        
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './MobileAppUnified/package-lock.json'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔧 Setup EAS CLI
+      run: npm install -g @expo/eas-cli
+      
+    - name: 🔐 EAS Login
+      run: |
+        echo "${{ secrets.EXPO_TOKEN }}" | eas login --non-interactive
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        
+    - name: 🍎 Build iOS with EAS
+      run: |
+        eas build --platform ios --profile ${{ github.event.inputs.build_type || 'preview' }} --non-interactive
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

@@ -1,0 +1,120 @@
+name: 🍎 iOS Build - MobileApp Unified
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'MobileAppUnified/**'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'MobileAppUnified/**'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+        - debug
+        - release
+
+jobs:
+  ios-build:
+    name: 🍎 Build iOS App
+    runs-on: macos-latest
+    
+    defaults:
+      run:
+        working-directory: ./MobileAppUnified
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: 📱 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './MobileAppUnified/package-lock.json'
+        
+    - name: 🍎 Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.0'
+        
+    - name: 💎 Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+        working-directory: ./MobileAppUnified
+        
+    - name: 📦 Install Dependencies
+      run: |
+        npm ci
+        
+    - name: 🍎 Install iOS Dependencies
+      run: |
+        cd ios
+        pod install --repo-update
+        cd ..
+        
+    - name: 🔧 Configure iOS Build
+      run: |
+        # Create iOS build configuration
+        mkdir -p ios/MobileAppUnified.xcworkspace
+        
+        # Set build settings
+        echo "Configuring iOS build settings..."
+        
+    - name: 🏗️ Build iOS App (Debug)
+      if: ${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == '' }}
+      run: |
+        cd ios
+        xcodebuild -workspace MobileAppUnified.xcworkspace \
+          -scheme MobileAppUnified \
+          -configuration Debug \
+          -destination 'generic/platform=iOS Simulator' \
+          -archivePath $PWD/build/MobileAppUnified.xcarchive \
+          archive
+          
+    - name: 🏗️ Build iOS App (Release)
+      if: ${{ github.event.inputs.build_type == 'release' }}
+      run: |
+        cd ios
+        xcodebuild -workspace MobileAppUnified.xcworkspace \
+          -scheme MobileAppUnified \
+          -configuration Release \
+          -destination 'generic/platform=iOS' \
+          -archivePath $PWD/build/MobileAppUnified.xcarchive \
+          archive
+          
+    - name: 📦 Export IPA
+      if: ${{ github.event.inputs.build_type == 'release' }}
+      run: |
+        cd ios
+        xcodebuild -exportArchive \
+          -archivePath $PWD/build/MobileAppUnified.xcarchive \
+          -exportPath $PWD/build \
+          -exportOptionsPlist $PWD/ExportOptions.plist
+          
+    - name: 📤 Upload iOS Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-app-${{ github.event.inputs.build_type || 'debug' }}
+        path: |
+          MobileAppUnified/ios/build/*.ipa
+          MobileAppUnified/ios/build/*.xcarchive
+        retention-days: 30
+        
+    - name: 📊 Build Summary
+      run: |
+        echo "## 🍎 iOS Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Type**: ${{ github.event.inputs.build_type || 'debug' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Xcode Version**: 15.0" >> $GITHUB_STEP_SUMMARY
+        echo "- **Node.js Version**: 18" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+        echo "- **Artifacts**: iOS App Bundle" >> $GITHUB_STEP_SUMMARY

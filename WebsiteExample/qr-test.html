@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码扫描测试 - MobileApp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .qr-section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border: 2px solid #f0f0f0;
+            border-radius: 15px;
+            background: #fafafa;
+        }
+
+        .qr-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn.success {
+            background: linear-gradient(135deg, #2ed573 0%, #1e90ff 100%);
+            box-shadow: 0 4px 15px rgba(46, 213, 115, 0.3);
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            min-height: 50px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+
+        .qr-container {
+            margin-top: 20px;
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .qr-frame {
+            width: 100%;
+            height: 500px;
+            border: none;
+        }
+
+        .qr-controls {
+            padding: 15px;
+            background: #f8f9fa;
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.online {
+            background: #28a745;
+        }
+
+        .status-indicator.offline {
+            background: #dc3545;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+        }
+
+        .feature-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .qr-frame {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 二维码扫描测试</h1>
+            <p>测试 WebQR.com 集成和原生扫码功能</p>
+        </div>
+
+        <div class="content">
+            <!-- WebQR 集成测试 -->
+            <div class="qr-section">
+                <h2>🌐 WebQR.com 集成测试</h2>
+                <p>测试在移动应用中集成 WebQR.com 的二维码扫描功能</p>
+                
+                <button onclick="openWebQRExternal()" class="btn">
+                    🔗 在外部浏览器打开 WebQR
+                </button>
+                
+                <button onclick="toggleEmbeddedQR()" class="btn success" id="embedBtn">
+                    📱 显示嵌入式扫描器
+                </button>
+                
+                <div id="qrResult" class="result">
+                    <span class="status-indicator offline"></span>
+                    等待扫描结果...
+                </div>
+
+                <!-- 嵌入式 WebQR -->
+                <div id="qrContainer" class="qr-container" style="display: none;">
+                    <iframe 
+                        id="qrFrame" 
+                        src="https://webqr.com/" 
+                        class="qr-frame"
+                        title="WebQR 二维码扫描器"
+                        allow="camera">
+                    </iframe>
+                    <div class="qr-controls">
+                        <button onclick="refreshQR()" class="btn">🔄 刷新扫描器</button>
+                        <button onclick="closeEmbeddedQR()" class="btn danger">❌ 关闭扫描器</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 原生功能测试 -->
+            <div class="qr-section">
+                <h2>📲 原生扫码功能测试</h2>
+                <p>测试移动应用的原生二维码扫描功能</p>
+                
+                <button onclick="requestCameraPermission()" class="btn">
+                    📷 请求相机权限
+                </button>
+                
+                <button onclick="startNativeQRScan()" class="btn success">
+                    🔍 启动原生扫码
+                </button>
+                
+                <div id="nativeResult" class="result">
+                    <span class="status-indicator offline"></span>
+                    原生功能仅在移动应用中可用
+                </div>
+            </div>
+
+            <!-- 功能特性说明 -->
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>🌐 WebQR 集成</h3>
+                    <p>直接在应用内嵌入 WebQR.com，无需安装额外插件</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>📱 原生扫码</h3>
+                    <p>使用设备原生相机进行高性能二维码识别</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>🔄 实时通信</h3>
+                    <p>WebView 与原生应用之间的双向消息传递</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>🔒 权限管理</h3>
+                    <p>安全的相机权限请求和管理机制</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let qrContainerVisible = false;
+
+        // WebQR 外部打开
+        function openWebQRExternal() {
+            showResult('qrResult', '正在打开外部 WebQR...', '');
+            
+            if (window.NativeApp && window.NativeApp.openExternalURL) {
+                window.NativeApp.openExternalURL('https://webqr.com/');
+                showResult('qrResult', 'WebQR 已在外部浏览器打开', 'success');
+            } else {
+                window.open('https://webqr.com/', '_blank');
+                showResult('qrResult', 'WebQR 已在新窗口打开', 'success');
+            }
+        }
+
+        // 切换嵌入式 QR 扫描器
+        function toggleEmbeddedQR() {
+            const container = document.getElementById('qrContainer');
+            const btn = document.getElementById('embedBtn');
+            
+            if (!qrContainerVisible) {
+                container.style.display = 'block';
+                btn.textContent = '📱 隐藏嵌入式扫描器';
+                btn.className = 'btn danger';
+                qrContainerVisible = true;
+                showResult('qrResult', '嵌入式 WebQR 扫描器已启动', 'success');
+                
+                // 监听来自 iframe 的消息
+                window.addEventListener('message', handleQRMessage, false);
+            } else {
+                closeEmbeddedQR();
+            }
+        }
+
+        // 关闭嵌入式扫描器
+        function closeEmbeddedQR() {
+            const container = document.getElementById('qrContainer');
+            const btn = document.getElementById('embedBtn');
+            
+            container.style.display = 'none';
+            btn.textContent = '📱 显示嵌入式扫描器';
+            btn.className = 'btn success';
+            qrContainerVisible = false;
+            showResult('qrResult', '嵌入式扫描器已关闭', '');
+            
+            window.removeEventListener('message', handleQRMessage, false);
+        }
+
+        // 刷新 QR 扫描器
+        function refreshQR() {
+            const frame = document.getElementById('qrFrame');
+            frame.src = frame.src;
+            showResult('qrResult', 'WebQR 扫描器已刷新', 'success');
+        }
+
+        // 处理来自 WebQR 的消息
+        function handleQRMessage(event) {
+            if (event.origin === 'https://webqr.com') {
+                console.log('收到 WebQR 消息:', event.data);
+                showResult('qrResult', '扫描结果: ' + JSON.stringify(event.data), 'success');
+            }
+        }
+
+        // 原生功能测试
+        function requestCameraPermission() {
+            if (window.NativeApp && window.NativeApp.requestCameraPermission) {
+                window.NativeApp.requestCameraPermission();
+                showResult('nativeResult', '正在请求相机权限...', '');
+            } else {
+                showResult('nativeResult', '原生功能仅在移动应用中可用', 'error');
+            }
+        }
+
+        function startNativeQRScan() {
+            if (window.NativeApp && window.NativeApp.startQRScan) {
+                window.NativeApp.startQRScan();
+                showResult('nativeResult', '正在启动原生二维码扫描...', '');
+            } else {
+                showResult('nativeResult', '原生扫码功能仅在移动应用中可用', 'error');
+            }
+        }
+
+        // 显示结果
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = 'result' + (type ? ' ' + type : '');
+            
+            // 更新状态指示器
+            const indicator = element.querySelector('.status-indicator');
+            if (indicator) {
+                indicator.className = 'status-indicator ' + (type === 'success' ? 'online' : 'offline');
+            }
+        }
+
+        // 监听原生应用的响应
+        window.addEventListener('nativeMessage', function(event) {
+            const message = event.detail;
+            console.log('收到原生消息:', message);
+            
+            switch (message.type) {
+                case 'CAMERA_PERMISSION_RESULT':
+                    showResult('nativeResult', 
+                        message.success ? '相机权限已获取' : '相机权限被拒绝: ' + message.error, 
+                        message.success ? 'success' : 'error'
+                    );
+                    break;
+                case 'QR_SCAN_RESULT':
+                    showResult('nativeResult', 
+                        message.success ? '扫描结果: ' + message.data : '扫描失败: ' + message.error, 
+                        message.success ? 'success' : 'error'
+                    );
+                    break;
+                case 'EXTERNAL_URL_RESULT':
+                    showResult('qrResult', 
+                        message.success ? message.message : '打开链接失败: ' + message.error, 
+                        message.success ? 'success' : 'error'
+                    );
+                    break;
+            }
+        });
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('二维码测试页面已加载');
+            
+            // 检测是否在移动应用中
+            if (window.NativeApp) {
+                showResult('nativeResult', '✅ 已检测到移动应用环境', 'success');
+            } else {
+                showResult('nativeResult', '⚠️ 当前在浏览器环境中，部分功能不可用', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
