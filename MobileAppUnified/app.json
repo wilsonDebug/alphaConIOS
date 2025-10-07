@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MobileAppUnified",
-    "slug": "mobileappunified",
+    "name": "MobileApp Unified",
+    "slug": "mobileapp-unified",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,14 +21,15 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#ffffff"
       },
       "package": "com.mobileappunified.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
-  },
-  "name": "MobileAppUnified",
-  "displayName": "MobileAppUnified"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
 }
